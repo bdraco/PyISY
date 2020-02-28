@@ -120,9 +120,9 @@ class Variables:
                 self.vids[vtype].append(vid)
                 self.vobjs[vtype][vid] = vobj
             else:
-                vobj.init.update(init, force=True, silent=True)
-                vobj.val.update(val, force=True, silent=True)
-                vobj.lastEdit.update(t_s, force=True, silent=True)
+                vobj.init = init
+                vobj.status = val
+                vobj.last_edited = t_s
 
         self.isy.log.info("ISY Loaded Variables")
 
@@ -147,17 +147,11 @@ class Variables:
             return  # this is a new variable that hasn't been loaded
 
         if "<init>" in xml:
-            vobj.init.update(
-                int(value_from_xml(xmldoc, ATTR_INIT)), force=True, silent=True
-            )
+            vobj.init = int(value_from_xml(xmldoc, ATTR_INIT))
         else:
-            vobj.val.update(
-                int(value_from_xml(xmldoc, ATTR_VAL)), force=True, silent=True
-            )
+            vobj.val = int(value_from_xml(xmldoc, ATTR_VAL))
             ts_raw = value_from_xml(xmldoc, ATTR_TS)
-            vobj.lastEdit.update(
-                datetime.strptime(ts_raw, XML_STRPTIME), force=True, silent=True
-            )
+            vobj.lastEdit = datetime.strptime(ts_raw, XML_STRPTIME)
         self.isy.log.debug("ISY Updated Variable: %s", str(vid))
 
     def __getitem__(self, val):

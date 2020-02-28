@@ -67,14 +67,13 @@ class Node(NodeBase):
         self._parent_nid = parent_nid if parent_nid != address else None
         self._uom = state.get(ATTR_UOM, "")
         self._prec = state.get(ATTR_PREC, "0")
-        self._formatted = state.get(ATTR_FORMATTED, str(self.status))
+        self._formatted = state.get(
+            ATTR_FORMATTED, state.get(ATTR_VALUE, VALUE_UNKNOWN)
+        )
         self._node_server = node_server
         self._protocol = protocol
-        self.status.update(
-            state.get(ATTR_VALUE, VALUE_UNKNOWN), force=True, silent=True
-        )
         self.control_events = EventEmitter()
-        super().__init__(nodes, address, name)
+        super().__init__(nodes, address, name, state.get(ATTR_VALUE, VALUE_UNKNOWN))
 
     @property
     def protocol(self):
@@ -160,7 +159,7 @@ class Node(NodeBase):
                 return
         elif hint is not None:
             # assume value was set correctly, auto update will correct errors
-            self.status.update(hint, silent=True)
+            self.status = hint
             self.isy.log.debug("ISY updated node: %s", self._id)
             return
 
@@ -174,7 +173,7 @@ class Node(NodeBase):
         self._prec = state.get(ATTR_PREC, self._prec)
         value = state.get(ATTR_VALUE, VALUE_UNKNOWN)
         self._formatted = state.get(ATTR_FORMATTED, value)
-        self.status.update(value, silent=True)
+        self.status = value
         self.isy.log.debug("ISY updated node: %s", self._id)
 
     def get_groups(self, controller=True, responder=True):

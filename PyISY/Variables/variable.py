@@ -1,7 +1,6 @@
 """Manage variables from the ISY."""
-from VarEvents import Property
-
 from ..constants import ATTR_INIT, ATTR_SET, ATTR_VARS, EMPTY_TIME, UPDATE_INTERVAL
+from ..Nodes.handlers import EventEmitter
 
 
 class Variable:
@@ -23,11 +22,7 @@ class Variable:
     :ivar val: Watched property that represents the value of the variable.
     """
 
-    init = Property(0)
-    val = Property(0)
-    lastEdit = Property(EMPTY_TIME, readonly=True)
-
-    def __init__(self, variables, vid, vtype, vname, init, val, ts):
+    def __init__(self, variables, vid, vtype, vname, init, status, ts):
         """Initialize a Variable class."""
         super(Variable, self).__init__()
         self.noupdate = False
@@ -37,33 +32,55 @@ class Variable:
         self._type = vtype
         self._name = vname
 
-        self.init.update(init, force=True, silent=True)
-        self.init.reporter = self.__report_init__
-        self.val.update(val, force=True, silent=True)
-        self.val.reporter = self.__report_val__
-        self.lastEdit.update(ts, force=True, silent=True)
+        self._init = init
+        self._status = status
+        self._last_edited = ts
+        self.status_events = EventEmitter()
 
     def __str__(self):
         """Return a string representation of the variable."""
-        return "Variable(type={!s}, id={!s}, val={!s})".format(
-            self._type, self._id, self.val
+        return "Variable(type={!s}, id={!s}, init={!s}, current={!s})".format(
+            self._type, self._id, self._init, self._status
         )
 
     def __repr__(self):
         """Return a string representation of the variable."""
         return str(self)
 
-    def __report_init__(self, val):
-        """Report the init value for the variable."""
-        self.noupdate = True
-        self.set_init(val)
-        self.noupdate = False
+    @property
+    def status(self):
+        """Return the current node state."""
+        return self._status
 
-    def __report_val__(self, val):
-        """Report the current value for the variable."""
-        self.noupdate = True
-        self.set_value(val)
-        self.noupdate = False
+    @status.setter
+    def status(self, value):
+        """Set the current node state and notify listeners."""
+        if self._status != value:
+            self._status = value
+            self.status_events.notify(
+                {"status": self._status, "init": self._init, "ts": self._last_edited}
+            )
+        return self._status
+
+    @property
+    def init(self):
+        """Return the initial state."""
+        return self._init
+
+    @init.setter
+    def init(self, value):
+        """Set the inital state and notify listeners."""
+        if self._init != value:
+            self._init = value
+            self.status_events.notify(
+                {"status": self._status, "init": self._init, "ts": self._last_edited}
+            )
+        return self._init
+
+    @property
+    def last_edited(self):
+        """Return the last edit time."""
+        return self._last_edited
 
     @property
     def vid(self):

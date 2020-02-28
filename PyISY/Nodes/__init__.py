@@ -5,19 +5,19 @@ from xml.dom import minidom
 from ..constants import (
     ATTR_ACTION,
     ATTR_CONTROL,
+    ATTR_FAMILY,
     ATTR_FLAG,
     ATTR_FOLDER,
-    ATTR_FAMILY,
-    ATTR_INSTANCE,
+    ATTR_FORMATTED,
     ATTR_GROUP,
+    ATTR_ID,
+    ATTR_INSTANCE,
     ATTR_NAME,
     ATTR_NODE,
     ATTR_PREC,
-    ATTR_ID,
-    ATTR_VALUE,
     ATTR_TYPE,
     ATTR_UOM,
-    ATTR_FORMATTED,
+    ATTR_VALUE,
     COMMAND_PROP_IGNORE,
     XML_PARSE_ERROR,
 )
@@ -190,7 +190,7 @@ class Nodes:
             node.prec = prec
         if uom and uom != node.uom:
             node.uom = uom
-        node.status.update(nval, force=True, silent=True)
+        node.status = nval
         self.isy.log.debug("ISY Updated Node: " + address)
 
     def control_message_received(self, xmldoc):

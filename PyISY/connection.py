@@ -1,10 +1,9 @@
 """Connection to the ISY."""
-from urllib.parse import quote
-from urllib.parse import urlencode
 import base64
 import ssl
 import sys
 import time
+from urllib.parse import quote, urlencode
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -186,12 +185,6 @@ class Connection:
         result = result.replace(
             '</vars><?xml version="1.0" encoding="UTF-8"?>' "<vars>", ""
         )
-        return result
-
-    def get_climate(self):
-        """Fetch the list of climate information from the ISY."""
-        req_url = self.compile_url(["climate"])
-        result = self.request(req_url)
         return result
 
     def get_network(self):

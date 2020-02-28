@@ -1,7 +1,4 @@
 """ISY Programs."""
-from VarEvents import Property
-
-from ..constants import EMPTY_TIME, UPDATE_INTERVAL
 from .folder import Folder
 
 
@@ -26,28 +23,20 @@ class Program(Folder):
     :ivar name: The name of the program.
     :ivar status: Watched property representing the current status of the
                   program.
-    :ivar lastUpdate: Watched property representing the last time the program
+    :ivar last_update: Watched property representing the last time the program
                       was updated.
-    :ivar lastRun: Watched property representing the last time the program was
+    :ivar last_run: Watched property representing the last time the program was
                    run.
-    :ivar lastFinished: Watched property representing the last time the program
+    :ivar last_finished: Watched property representing the last time the program
                         finished running.
     :ivar enabled: Watched property representing if the program is enabled on
                    the controller.
-    :ivar runAtStartup: Watched property representing the if the program runs
+    :ivar run_at_startup: Watched property representing the if the program runs
                         on controller start up.
     :ivar running: Watched property representing if the current program is
                    running on the controller.
     """
 
-    lastUpdate = Property(EMPTY_TIME, readonly=True)
-    lastRun = Property(EMPTY_TIME, readonly=True)
-    lastFinished = Property(EMPTY_TIME, readonly=True)
-    enabled = Property(True)
-    runAtStartup = Property(True)
-    running = Property(False, readonly=True)
-    ranThen = Property(0, readonly=True)
-    ranElse = Property(0, readonly=True)
     dtype = "program"
 
     def __init__(
@@ -65,26 +54,14 @@ class Program(Folder):
     ):
         """Initialize a Program class."""
         super(Program, self).__init__(programs, address, pname, pstatus)
-        self.lastUpdate.update(plastup, force=True, silent=True)
-        self.lastRun.update(plastrun, force=True, silent=True)
-        self.lastFinished.update(plastfin, force=True, silent=True)
-        self.enabled.update(penabled, force=True, silent=True)
-        self.enabled.responder = self.__report_enabled__
-        self.runAtStartup.update(pstartrun, force=True, silent=True)
-        self.runAtStartup.responder = self.__report_startrun__
-        self.running.update(prunning, force=True, silent=True)
-
-    def __report_enabled__(self, val):
-        """Set the enabled flag."""
-        self.noupdate = True
-        self.send_pgrm_cmd("enable" if val else "disable")
-        self.noupdate = False
-
-    def __report_startrun__(self, val):
-        """Set the run at startup flag."""
-        self.noupdate = True
-        self.send_pgrm_cmd("enableRunAtStartup" if val else "disableRunAtStartup")
-        self.noupdate = False
+        self.last_update = plastup
+        self.last_run = plastrun
+        self.last_finished = plastfin
+        self.enabled = penabled
+        self.run_at_startup = pstartrun
+        self.running = prunning
+        self.ran_then = 0
+        self.ran_else = 0
 
     def update(self, wait_time=0, data=None):
         """
@@ -96,13 +73,18 @@ class Program(Folder):
         if not self.noupdate:
             if data is not None:
                 prunning = (data["plastrun"] >= data["plastup"]) or data["prunning"]
-                self.status.update(data["pstatus"], force=True, silent=True)
-                self.lastUpdate.update(data["plastup"], force=True, silent=True)
-                self.lastRun.update(data["plastrun"], force=True, silent=True)
-                self.lastFinished.update(data["plastfin"], force=True, silent=True)
-                self.enabled.update(data["penabled"], force=True, silent=True)
-                self.runAtStartup.update(data["pstartrun"], force=True, silent=True)
-                self.running.update(prunning, force=True, silent=True)
+                self.last_update = data["plastup"]
+                self.last_run = data["plastrun"]
+                self.last_finished = data["plastfin"]
+                self.enabled = data["penabled"]
+                self.run_at_startup = data["pstartrun"]
+                self.running = prunning
+                # Update Status last and make sure the change event fires, but only once.
+                if self.status != data["pstatus"]:
+                    self.status = data["pstatus"]
+                else:
+                    # Status didn't change, but something did, so fire the event.
+                    self.status_events.notify(self.status)
             elif not self.isy.auto_update:
                 self._programs.update(wait_time, address=self._id)
 

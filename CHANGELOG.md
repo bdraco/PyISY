@@ -1,5 +1,28 @@
 ## CHANGELOG
 
+### [v2.0.1] - Remove dependency on VarEvents library
+
+#### Breaking Changes:
+
+- Calling `node.status.update(value)` (non-silent) to require the ISY to update the node has been removed. Use the proper functions (e.g. `on()`, `off()`) to request the ISY update. Note: all internal functions previously used `silent=True` mode.
+- Variables `val` property is now `status` for consistency.
+- Variables `lastEdit` property is now `last_edited` and no longer fires events on its own. Use a single subscriber to pick up changes to `status`, `init`, and `ts`.
+- Group All On property no longer first its own event. Subscribe to the status events for changes.
+- Subscriptions for status changes need to be updated:
+  ```python
+  # Old:
+  node.status.subscribe("changed", self.on_update)
+  # New:
+  node.status_events.subscribe(self.on_update)
+  ```
+- Program properties no longer fire their own events, but will fire the main status_event when something is changed.
+- Program property changes to conform to snake_case.
+  + `lastUpdate` -> `last_update`
+  + `lastRun` -> `last_run`
+  + `lastFinished` -> `last_finished`
+  + `runAtStartup` -> `run_at_startup`
+- Climate Module Retired as per [UDI Annoucement](https://www.universal-devices.com/byebyeclimatemodule/)
+
 ### [v2.0.0] - Version 2.0 Initial Release
 
 #### Summary: 

@@ -152,25 +152,32 @@ class Programs:
         if isinstance(pobj, Program):
             if "<s>" in xml:
                 status = value_from_xml(xmldoc, "s")
+                new_status = False
                 if status == "21":
-                    pobj.ranThen.update(pobj.ranThen + 1, force=True, silent=True)
-                    pobj.status.update(True, force=True, silent=True)
+                    pobj.ran_then += 1
+                    new_status = True
                 elif status == "31":
-                    pobj.ranElse.update(pobj.ranElse + 1, force=True, silent=True)
-                    pobj.status.update(False, force=True, silent=True)
+                    pobj.ran_else += 1
 
             if "<r>" in xml:
-                plastrun = value_from_xml(xmldoc, "r")
-                plastrun = datetime.strptime(plastrun, XML_STRPTIME_YY)
-                pobj.lastRun.update(plastrun, force=True, silent=True)
+                pobj.last_run = datetime.strptime(
+                    value_from_xml(xmldoc, "r"), XML_STRPTIME_YY
+                )
 
             if "<f>" in xml:
-                plastfin = value_from_xml(xmldoc, "f")
-                plastfin = datetime.strptime(plastfin, XML_STRPTIME_YY)
-                pobj.lastFinished.update(plastfin, force=True, silent=True)
+                pobj.last_finished = datetime.strptime(
+                    value_from_xml(xmldoc, "f"), XML_STRPTIME_YY
+                )
 
             if "<on />" in xml or "<off />" in xml:
-                pobj.enabled.update("<on />" in xml, force=True, silent=True)
+                pobj.enabled = "<on />" in xml
+
+            # Update Status last and make sure the change event fires, but only once.
+            if pobj.status != new_status:
+                pobj.status = new_status
+            else:
+                # Status didn't change, but something did, so fire the event.
+                pobj.status_events.notify(new_status)
 
         self.isy.log.debug("ISY Updated Program: " + address)
 

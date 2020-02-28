@@ -1,19 +1,17 @@
 """Base object for nodes and groups."""
 from xml.dom import minidom
 
-from VarEvents import Property
-
 from ..constants import COMMAND_FRIENDLY_NAME, UPDATE_INTERVAL, XML_PARSE_ERROR
 from ..helpers import value_from_xml
+from .handlers import EventEmitter
 
 
 class NodeBase:
     """Base Object for Nodes and Groups/Scenes."""
 
-    status = Property(0)
     has_children = False
 
-    def __init__(self, nodes, address, name, aux_properties=None):
+    def __init__(self, nodes, address, name, status, aux_properties=None):
         """Initialize a Group class."""
         self._nodes = nodes
         self.isy = nodes.isy
@@ -21,13 +19,25 @@ class NodeBase:
         self._name = name
         self._notes = None
         self._aux_properties = aux_properties if aux_properties is not None else {}
-
-        # respond to non-silent changes in status
-        self.status.reporter = self.__report_status__
+        self._status = status
+        self.status_events = EventEmitter()
 
     def __str__(self):
         """Return a string representation of the node."""
         return "{}({})".format(type(self).__name__, self._id)
+
+    @property
+    def status(self):
+        """Return the current node state."""
+        return self._status
+
+    @status.setter
+    def status(self, value):
+        """Set the current node state and notify listeners."""
+        if self._status != value:
+            self._status = value
+            self.status_events.notify(self._status)
+        return self._status
 
     @property
     def aux_properties(self):
@@ -64,10 +74,6 @@ class NodeBase:
         """Return the text of the Spoken property inside the group notes."""
         self._notes = self.parse_notes()
         return self._notes["spoken"]
-
-    def __report_status__(self, new_val):
-        """Report the status of the node."""
-        self.on(new_val)
 
     def off(self):
         """Turn off the nodes/group in the ISY."""
@@ -115,7 +121,7 @@ class NodeBase:
         )
 
         # Calculate hint to use if status is updated
-        hint = self.status._val
+        hint = self.status
         if cmd in ["DON", "DFON"]:
             if val is not None:
                 hint = val

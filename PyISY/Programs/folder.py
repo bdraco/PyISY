@@ -1,7 +1,6 @@
 """ISY Program Folders."""
-from VarEvents import Property
-
 from ..constants import ATTR_FOLDER, UPDATE_INTERVAL
+from ..Nodes.handlers import EventEmitter
 
 
 class Folder:
@@ -18,7 +17,6 @@ class Folder:
                   folder.
     """
 
-    status = Property(0, readonly=True)
     dtype = ATTR_FOLDER
 
     def __init__(self, programs, address, pname, pstatus):
@@ -28,11 +26,25 @@ class Folder:
         self.isy = programs.isy
         self.name = pname
         self._id = address
-        self.status.update(pstatus, force=True, silent=True)
+        self._status = pstatus
+        self.status_events = EventEmitter()
 
     def __str__(self):
         """Return a string representation of the node."""
         return "{}({})".format(type(self).__name__, self._id)
+
+    @property
+    def status(self):
+        """Return the current node state."""
+        return self._status
+
+    @status.setter
+    def status(self, value):
+        """Set the current node state and notify listeners."""
+        if self._status != value:
+            self._status = value
+            self.status_events.notify(self._status)
+        return self._status
 
     @property
     def address(self):
@@ -53,7 +65,7 @@ class Folder:
         """
         if not self.noupdate:
             if data is not None:
-                self.status.update(data["pstatus"], force=True, silent=True)
+                self.status = data["pstatus"]
             elif not self.isy.auto_update:
                 self._programs.update(wait_time, address=self._id)
 
