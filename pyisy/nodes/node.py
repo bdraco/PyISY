@@ -243,5 +243,5 @@ class Node(NodeBase):
     def get_setpoint_uom(self, prop):
         """Get the Unit of Measurement for Z-Wave Climate Settings."""
         if self._devtype_cat and self._aux_properties.get(prop):
-            return self._aux_properties.get(prop).get(ATTR_UNIT_OF_MEASURE)
+            return self._aux_properties[prop].uom
         return None
