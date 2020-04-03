@@ -158,7 +158,7 @@ class EventStream:
                 if len(new_data) == 0:
                     if self._event_count == 1:
                         raise ISYStreamDisconnectedMaxConnections
-                    else
+                    else:
                         raise ISYStreamDisconnected
                 self._event_buffer += new_data                        
                 while True:
