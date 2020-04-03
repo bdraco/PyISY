@@ -23,6 +23,9 @@ from .constants import (
 )
 from .helpers import attr_from_xml, value_from_xml
 
+HTTP_HEADER_SEPERATOR = b"\r\n"
+HTTP_HEADER_BODY_SEPERATOR = b"\r\n\r\n"
+HTTP_HEADER_BODY_SEPERATOR_LEN = 4
 
 class EventStream:
     """Class to represent the Event Stream from the ISY."""
@@ -40,6 +43,9 @@ class EventStream:
         self._on_lost_function = on_lost_func
         self.cert = None
         self.data = connection_info
+
+        self._event_buffer = b""
+        self._event_content_length = None
 
         # create TLS encrypted socket if we're using HTTPS
         if self.data.get("tls") is not None:
@@ -130,25 +136,72 @@ class EventStream:
             self.unsubscribe()
             self.disconnect()
 
-    def read(self):
+    def _read_one_response_or_timeout(self):
         """Read data from the socket."""
-        loop = True
-        output = ""
-        while loop:
-            try:
-                new_data = self.socket.recv(SOCKET_BUFFER_SIZE)
-            except ssl.SSLWantReadError:
-                pass
-            except socket.error:
-                loop = False
-            else:
-                if len(new_data) < SOCKET_BUFFER_SIZE:
-                    loop = False
-                if sys.version_info.major == 3:
-                    new_data = new_data.decode("utf-8")
-                output += new_data
+        # poll socket for new data
+        while True:
+            inready, _, _ = select.select([self.socket], [], [], POLL_TIME)
 
-        return output.split("\n")
+            if not self.socket in inready:
+                return
+
+            try:
+                # We have data on the wire, read as much as we can
+                while True:
+                    new_data = self.socket.recv(SOCKET_BUFFER_SIZE)
+                    if len(new_data) == 0:
+                        break
+                    self._event_buffer += new_data
+            except ssl.SSLWantReadError:
+                continue
+
+            self.isy.log.debug(
+                "PyISY buffer: %s.", self._event_buffer
+            )
+
+            # Read the headers if we do not have content length yet
+            if not self._event_content_length:
+                seperator_position = self._event_buffer.find(HTTP_HEADER_BODY_SEPERATOR)
+                if seperator_position == -1:
+                    continue
+                self._parse_headers(seperator_position)
+
+            self.isy.log.debug(
+                "PyISY _event_content_length: %s.", self._event_content_length
+            )
+
+            # If we do not have the body yet read again
+            if len(self._event_buffer) < self._event_content_length:
+                self.isy.log.debug(
+                    "PyISY body not read yet: %s < %s", len(self._event_buffer), self._event_content_length
+                )
+                continue
+
+            # We have the body now
+            body = self._event_buffer[0:self._event_content_length]
+            self.isy.log.debug(
+                "PyISY body: %s.", body
+            )
+
+            self._event_buffer = self._event_buffer[self._event_content_length:]
+            self._event_content_length = None
+
+            if sys.version_info.major == 3:
+                return body.decode("utf-8")
+            return body
+
+    def _parse_headers(self, seperator_position):
+        """Find the content-length in the headers."""
+        headers = self._event_buffer[0:seperator_position]
+        self._event_buffer = self._event_buffer[seperator_position+HTTP_HEADER_BODY_SEPERATOR_LEN:]
+        for header in headers.split(HTTP_HEADER_SEPERATOR):
+            header_name, header_value = header.split(b":", 1)
+            if header_name.strip().lower() != b"content-length":
+                continue
+            self._event_content_length = int(header_value.strip())
+        if not self._event_content_length:
+            # missing content-type!
+            raise ValueError
 
     def write(self, msg):
         """Write data back to the socket."""
@@ -214,6 +267,15 @@ class EventStream:
             return (datetime.datetime.now() - self._lasthb).seconds
         return 0.0
 
+    def _lost_connect(self):
+        """Called when the event stream connection is lost."""
+        self.disconnect()
+        self.isy.log.warning(
+            "PyISY lost connection to the ISY event stream."
+        )
+        if self._on_lost_function is not None:
+            self._on_lost_function()
+
     def watch(self):
         """Watch the subscription connection and report if dead."""
         if not self._subscribed:
@@ -222,26 +284,30 @@ class EventStream:
             )
             return
 
-        while self._running and self._subscribed:
+        self._event_buffer = b""
+        self._event_content_length = None
+
+        while True:
             # verify connection is still alive
             if self.heartbeat_time > self._hbwait:
-                self.disconnect()
-                self.isy.log.warning(
-                    "PyISY lost connection to the ISY event stream."
-                )
-                if self._on_lost_function is not None:
-                    self._on_lost_function()
+                self._lost_connect()
+                return
 
-            # poll socket for new data
-            inready, _, _ = select.select([self.socket], [], [], POLL_TIME)
-            if self.socket in inready:
-                for data in self.read():
-                    self.isy.log.debug(
-                        "watch data: %s", data
-                    )
-                    if data.startswith("<?xml"):
-                        data = data.strip().replace("POST reuse HTTP/1.1", "")
-                        self._route_message(data)
+            try:
+                data = self._read_one_response_or_timeout()
+            except Exception: # pylint: disable=broad-except
+                self.isy.log.warning(
+                    "PyISY encountered an error while reading the event stream: %s."
+                )
+                self._lost_connect()
+                return
+
+            if not self._running or not self._subscribed:
+                break
+
+            if data:
+                self._route_message(data)
+
 
         self.isy.log.debug(
             "PyISY ended watch loop with running:%s and subscribed:%s.", self._running, self._subscribed
