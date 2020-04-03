@@ -237,7 +237,11 @@ class EventStream:
                 self._lost_connect()
                 return
 
-            for data in events:            
+            self.isy.log.debug(
+                "New events: %s.", events
+            )
+
+            for data in events:         
                 self._route_message(data)
 
             self.isy.log.debug(
