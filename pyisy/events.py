@@ -149,6 +149,9 @@ class EventStream:
                 # We have data on the wire, read as much as we can
                 while True:
                     new_data = self.socket.recv(SOCKET_BUFFER_SIZE)
+                    self.isy.log.debug(
+                        "PyISY new_data: %s.", new_data
+                    )
                     if len(new_data) == 0:
                         break
                     self._event_buffer += new_data
