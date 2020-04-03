@@ -321,6 +321,9 @@ class EventStream:
         self._event_count = 0
 
         while True:
+            self.isy.log.debug(
+                "loop."
+            )
             # verify connection is still alive
             if self.heartbeat_time > self._hbwait:
                 self._lost_connect()
@@ -350,6 +353,9 @@ class EventStream:
                 for data in events:
                     self._route_message(data)
 
+            self.isy.log.debug(
+                "completed rounting message."
+            )
 
         self.isy.log.debug(
             "PyISY ended watch loop with running:%s and subscribed:%s.", self._running, self._subscribed
