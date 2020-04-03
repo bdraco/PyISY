@@ -216,21 +216,33 @@ class EventStream:
 
     def watch(self):
         """Watch the subscription connection and report if dead."""
-        if self._subscribed:
-            while self._running and self._subscribed:
-                # verify connection is still alive
-                if self.heartbeat_time > self._hbwait:
-                    self.disconnect()
-                    self.isy.log.warning(
-                        "PyISY lost connection to the ISY event stream."
-                    )
-                    if self._on_lost_function is not None:
-                        self._on_lost_function()
+        if not self._subscribed:
+            self.isy.log.debug(
+                "PyISY watch called without a subscription."
+            )
+            return
 
-                # poll socket for new data
-                inready, _, _ = select.select([self.socket], [], [], POLL_TIME)
-                if self.socket in inready:
-                    for data in self.read():
-                        if data.startswith("<?xml"):
-                            data = data.strip().replace("POST reuse HTTP/1.1", "")
-                            self._route_message(data)
+        while self._running and self._subscribed:
+            # verify connection is still alive
+            if self.heartbeat_time > self._hbwait:
+                self.disconnect()
+                self.isy.log.warning(
+                    "PyISY lost connection to the ISY event stream."
+                )
+                if self._on_lost_function is not None:
+                    self._on_lost_function()
+
+            # poll socket for new data
+            inready, _, _ = select.select([self.socket], [], [], POLL_TIME)
+            if self.socket in inready:
+                for data in self.read():
+                    self.isy.log.debug(
+                        "watch data: %s", data
+                    )
+                    if data.startswith("<?xml"):
+                        data = data.strip().replace("POST reuse HTTP/1.1", "")
+                        self._route_message(data)
+
+        self.isy.log.debug(
+            "PyISY ended watch loop with running:%s and subscribed:%s.", self._running, self._subscribed
+        )
