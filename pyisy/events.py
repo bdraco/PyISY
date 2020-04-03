@@ -323,6 +323,9 @@ class EventStream:
                 break
 
             if data:
+                self.isy.log.warning(
+                    "PyISY routing message: %s.", data
+                )                
                 self._route_message(data)
 
 
