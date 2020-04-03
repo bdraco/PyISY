@@ -14,6 +14,7 @@ class ISYEventReader:
     HTTP_HEADER_SEPERATOR = b"\r\n"
     HTTP_HEADER_BODY_SEPERATOR = b"\r\n\r\n"
     HTTP_HEADER_BODY_SEPERATOR_LEN = 4
+    REACHED_MAX_CONNECTIONS_RESPONSE = b"HTTP/1.1 817"
     CONTENT_LENGTH_HEADER = b"content-length"
     HEADER_SEPERATOR = b":"
 
@@ -97,7 +98,7 @@ class ISYEventReader:
         """Find the content-length in the headers."""
         headers = self._event_buffer[0:seperator_position]
         self._isy.log.debug("PyISY headers: %s.", headers)
-        if headers.startsWith(b"HTTP/1.1 817"):
+        if headers.startsWith(self.REACHED_MAX_CONNECTIONS_RESPONSE):
             raise ISYMaxConnections(self._event_buffer)
         self._event_buffer = self._event_buffer[
             seperator_position + self.HTTP_HEADER_BODY_SEPERATOR_LEN :
