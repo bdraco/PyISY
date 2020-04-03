@@ -95,7 +95,7 @@ class ISYEventReader:
     def _parse_headers(self, seperator_position):
         """Find the content-length in the headers."""
         headers = self._event_buffer[0:seperator_position]
-        if headers.startsWith(self.REACHED_MAX_CONNECTIONS_RESPONSE):
+        if headers.startswith(self.REACHED_MAX_CONNECTIONS_RESPONSE):
             raise ISYMaxConnections(self._event_buffer)
         self._event_buffer = self._event_buffer[
             seperator_position + self.HTTP_HEADER_BODY_SEPERATOR_LEN :
