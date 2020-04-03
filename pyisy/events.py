@@ -353,5 +353,7 @@ class EventStream:
         )
 
 class ISYStreamDisconnected(Exception):
+    pass
 
 class ISYStreamDisconnectedMaxConnections(ISYStreamDisconnected):
+    pass
