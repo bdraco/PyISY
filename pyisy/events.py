@@ -259,7 +259,7 @@ class ISYEventReader:
         """Read events from the socket."""
         events = []
         # poll socket for new data
-        self.isy.log.debug(
+        self._isy.log.debug(
             "PyISY read_events_or_timeout: %s.", timeout
         )
         if not self._recv_into_buffer(timeout):
@@ -297,7 +297,7 @@ class ISYEventReader:
         If we get an empty read on the first read attempt
         and we have seen only one event, the isy has reached
         the maximum number of event listeners.
-        """          
+        """
         inready, _, _ = select.select([self._socket], [], [], timeout)
         if not self._socket in inready:
             return False
