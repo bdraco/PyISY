@@ -295,9 +295,9 @@ class EventStream:
 
             try:
                 data = self._read_one_response_or_timeout()
-            except Exception: # pylint: disable=broad-except
+            except Exception as ex: # pylint: disable=broad-except
                 self.isy.log.warning(
-                    "PyISY encountered an error while reading the event stream: %s."
+                    "PyISY encountered an error while reading the event stream: %s.", ex
                 )
                 self._lost_connect()
                 return
