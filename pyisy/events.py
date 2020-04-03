@@ -329,7 +329,7 @@ class ISYEventReader:
             pass
         except socket.error as ex:
             if ex.errno == errno.EWOULDBLOCK:
-                pass
+                return True
             raise
 
         return True
