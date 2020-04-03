@@ -80,7 +80,7 @@ class ISYEventReader:
                 if len(new_data) == 0:
                     if read_count != 0:
                         break
-                    if self._event_count == 1:
+                    if self._event_count <= 1:
                         raise ISYMaxConnections
                     raise ISYStreamDisconnected
 
