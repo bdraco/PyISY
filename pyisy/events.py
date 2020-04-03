@@ -212,7 +212,7 @@ class EventStream:
             )
             return
 
-        event_reader = ISYEventReader(self.isy, self.socket)
+        event_reader = ISYEventReader(self.socket)
 
         while self._running and self._subscribed:
             # verify connection is still alive
@@ -241,16 +241,8 @@ class EventStream:
                 self._lost_connect(0)
                 return
 
-            self.isy.log.debug(
-                "New events: %s.", events
-            )
-
-            for data in events:
-                self._route_message(data)
-
-            self.isy.log.debug(
-                "PyISY finished routing events."
-            )
+            for message in events:
+                self._route_message(message)
 
     def __del__(self):
         """Ensure we unsubscribe on destroy."""

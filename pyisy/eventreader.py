@@ -18,19 +18,17 @@ class ISYEventReader:
     CONTENT_LENGTH_HEADER = b"content-length"
     HEADER_SEPERATOR = b":"
 
-    def __init__(self, isy, isy_read_socket):
+    def __init__(self, isy_read_socket):
         """Initialize the ISYEventStream class."""
         self._event_buffer = b""
         self._event_content_length = None
         self._event_count = 0
         self._socket = isy_read_socket
-        self._isy = isy
 
     def read_events(self, timeout):
         """Read events from the socket."""
         events = []
         # poll socket for new data
-        self._isy.log.debug("PyISY read_events_or_timeout: %s.", timeout)
         if not self._recv_into_buffer(timeout):
             return events
 
@@ -97,7 +95,6 @@ class ISYEventReader:
     def _parse_headers(self, seperator_position):
         """Find the content-length in the headers."""
         headers = self._event_buffer[0:seperator_position]
-        self._isy.log.debug("PyISY headers: %s.", headers)
         if headers.startsWith(self.REACHED_MAX_CONNECTIONS_RESPONSE):
             raise ISYMaxConnections(self._event_buffer)
         self._event_buffer = self._event_buffer[
