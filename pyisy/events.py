@@ -158,6 +158,8 @@ class EventStream:
             self.isy.log.debug(
                 "PyISY buffer: %s.", self._event_buffer
             )
+            if len(self._event_buffer) == 0:
+                return
 
             # Read the headers if we do not have content length yet
             if not self._event_content_length:
