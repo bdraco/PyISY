@@ -232,7 +232,7 @@ class EventStream:
                 return
             except (ISYStreamDataError, socket.error) as ex: 
                 self.isy.log.warning(
-                    "PyISY encountered an error while reading the event stream.",
+                    "PyISY encountered an error while reading the event stream: %s.", ex
                 )
                 self._lost_connect()
                 return
