@@ -139,8 +139,11 @@ class EventStream:
     def _read_one_response_or_timeout(self):
         """Read data from the socket."""
         # poll socket for new data
-        while True:
+        while True:           
             inready, _, _ = select.select([self.socket], [], [], POLL_TIME)
+            self.isy.log.debug(
+                "PyISY inready: %s.", inready
+            )
 
             if not self.socket in inready:
                 return
