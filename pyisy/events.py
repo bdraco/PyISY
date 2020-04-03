@@ -140,6 +140,10 @@ class EventStream:
 
     def _read_events_or_timeout(self):
         """Read data from the socket."""
+        self.isy.log.debug(
+            "PyISY _read_events_or_timeout."
+        )        
+
         events = []
         # poll socket for new data
         if not self._read_socket_into_buffer():
@@ -325,7 +329,7 @@ class EventStream:
                 self.isy.log.warning(
                     "PyISY reached maximum connections, will not auto reconnect: %s.", ex
                 )
-                return 
+                return
             except (ISYStreamDisconnected, socket.error) as ex: # pylint: disable=broad-except
                 self.isy.log.warning(
                     "PyISY encountered an error while reading the event stream: %s.", ex
