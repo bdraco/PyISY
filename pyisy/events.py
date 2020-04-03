@@ -303,7 +303,7 @@ class EventStream:
 
             try:
                 data = self._read_one_response_or_timeout()
-            except Exception as ex: # pylint: disable=broad-except
+            except socket.error as ex: # pylint: disable=broad-except
                 self.isy.log.warning(
                     "PyISY encountered an error while reading the event stream: %s.", ex
                 )
