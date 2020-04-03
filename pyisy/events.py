@@ -230,9 +230,15 @@ class EventStream:
                     "PyISY reached maximum connections, will not auto reconnect.",
                 )
                 return
-            except (ISYStreamDataError, socket.error) as ex: 
+            except ISYStreamDataError as ex: 
                 self.isy.log.warning(
-                    "PyISY encountered an error while reading the event stream: %s.", ex
+                    "PyISY encountered an error while reading the event stream."
+                )
+                self._lost_connect()
+                return
+            except socket.error as ex: 
+                self.isy.log.warning(
+                    "PyISY encountered a socket error while reading the event stream: %s.", ex
                 )
                 self._lost_connect()
                 return
@@ -321,7 +327,7 @@ class ISYEventReader:
                 self._event_buffer += new_data
         except ssl.SSLWantReadError:
             pass
-        except IOError as ex:
+        except socket.error as ex:
             if ex.errno == errno.EWOULDBLOCK:
                 pass
             raise
