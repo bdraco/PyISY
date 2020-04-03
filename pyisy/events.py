@@ -193,7 +193,9 @@ class EventStream:
 
             self._event_buffer = self._event_buffer[self._event_content_length:]
             self._event_content_length = None
-
+            self.isy.log.debug(
+                "PyISY buffer after removing body: %s.", self._event_buffer
+            )
             if sys.version_info.major == 3:
                 return body.decode("utf-8")
             return body
