@@ -328,9 +328,9 @@ class ISYEventReader:
         except ssl.SSLWantReadError:
             pass
         except socket.error as ex:
-            if ex.errno == errno.EWOULDBLOCK:
-                return True
-            raise
+            if ex.errno != errno.EWOULDBLOCK:
+                raise
+            pass
 
         return True
 
