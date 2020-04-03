@@ -194,7 +194,7 @@ class EventStream:
         """Find the content-length in the headers."""
         headers = self._event_buffer[0:seperator_position]
         self._event_buffer = self._event_buffer[seperator_position+HTTP_HEADER_BODY_SEPERATOR_LEN:]
-        for header in headers.split(HTTP_HEADER_SEPERATOR):
+        for header in headers.split(HTTP_HEADER_SEPERATOR)[1:]:
             header_name, header_value = header.split(b":", 1)
             if header_name.strip().lower() != b"content-length":
                 continue
