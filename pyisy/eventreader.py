@@ -81,8 +81,8 @@ class ISYEventReader:
                     if read_count != 0:
                         break
                     if self._event_count <= 1:
-                        raise ISYMaxConnections
-                    raise ISYStreamDisconnected
+                        raise ISYMaxConnections(self._event_buffer)
+                    raise ISYStreamDisconnected(self._event_buffer)
 
                 self._event_buffer += new_data
         except ssl.SSLWantReadError:
