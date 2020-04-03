@@ -348,9 +348,12 @@ class EventStream:
 
             if events:
                 self.isy.log.warning(
-                    "PyISY routing message: %s.", events
+                    "PyISY routing messages: %s.", events
                 )
                 for data in events:
+                    self.isy.log.warning(
+                        "PyISY route message: %s.", data
+                    )                    
                     self._route_message(data)
 
             self.isy.log.debug(
