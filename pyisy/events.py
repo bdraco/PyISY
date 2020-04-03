@@ -146,7 +146,7 @@ class EventStream:
 
         events = []
         # poll socket for new data
-        if not self._read_socket_into_buffer():
+        if not self._recvall_into_buffer():
             return events
 
         while True:
@@ -185,7 +185,7 @@ class EventStream:
                 events.append(body.decode("utf-8"))
             events.append(body)
 
-    def _read_socket_into_buffer(self):                
+    def _recvall_into_buffer(self):                
         inready, _, _ = select.select([self.socket], [], [], POLL_TIME)
         self.isy.log.debug(
             "PyISY inready: %s.", inready
@@ -198,6 +198,9 @@ class EventStream:
             # We have data on the wire, read as much as we can
             new_data = self.socket.recv(SOCKET_BUFFER_SIZE)            
             if len(new_data) == 0:
+                self.isy.log.debug(
+                    "PyISY empty read after event count: %s.", self._event_count
+                )                
                 if self._event_count == 1:
                     raise ISYMaxConnections
                 raise ISYStreamDisconnected
@@ -325,12 +328,12 @@ class EventStream:
 
             try:
                 events = self._read_events_or_timeout()
-            except ISYMaxConnections: # pylint: disable=broad-except
+            except ISYMaxConnections:
                 self.isy.log.warning(
                     "PyISY reached maximum connections, will not auto reconnect: %s.", ex
                 )
                 return
-            except (ISYStreamDisconnected, socket.error) as ex: # pylint: disable=broad-except
+            except (ISYStreamDisconnected, socket.error) as ex: 
                 self.isy.log.warning(
                     "PyISY encountered an error while reading the event stream: %s.", ex
                 )
