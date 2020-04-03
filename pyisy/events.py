@@ -183,7 +183,8 @@ class EventStream:
             
             if sys.version_info.major == 3:
                 events.append(body.decode("utf-8"))
-            events.append(body)
+            else:
+                events.append(str(body))
 
     def _recvall_into_buffer(self):                
         inready, _, _ = select.select([self.socket], [], [], POLL_TIME)
