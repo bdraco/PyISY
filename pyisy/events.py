@@ -46,6 +46,7 @@ class EventStream:
 
         self._event_buffer = b""
         self._event_content_length = None
+        self._event_count = 0
 
         # create TLS encrypted socket if we're using HTTPS
         if self.data.get("tls") is not None:
@@ -150,13 +151,16 @@ class EventStream:
 
             try:
                 # We have data on the wire, read as much as we can
-                #new_data = self.socket.recv(SOCKET_BUFFER_SIZE)
-                #self.isy.log.debug(
-                #   "PyISY new_data: %s.", new_data
-                #)                
-                #if len(new_data) == 0:
-                #    raise socket.error("disconnected")
-                #self._event_buffer += new_data                        
+                new_data = self.socket.recv(SOCKET_BUFFER_SIZE)
+                self.isy.log.debug(
+                   "PyISY new_data: %s.", new_data
+                )                
+                if len(new_data) == 0:
+                    if self._event_count == 1:
+                        raise ISYStreamDisconnectedMaxConnections
+                    else
+                        raise ISYStreamDisconnected
+                self._event_buffer += new_data                        
                 while True:
                     new_data = self.socket.recv(SOCKET_BUFFER_SIZE)
                     self.isy.log.debug(
@@ -198,11 +202,13 @@ class EventStream:
                 "PyISY body: %s.", body
             )
 
+            self._event_count += 1
             self._event_buffer = self._event_buffer[self._event_content_length:]
             self._event_content_length = None
             self.isy.log.debug(
                 "PyISY buffer after removing body: %s.", self._event_buffer
             )
+            
             if sys.version_info.major == 3:
                 return body.decode("utf-8")
             return body
@@ -303,6 +309,7 @@ class EventStream:
 
         self._event_buffer = b""
         self._event_content_length = None
+        self._event_count = 0
 
         while True:
             # verify connection is still alive
@@ -312,6 +319,18 @@ class EventStream:
 
             try:
                 data = self._read_one_response_or_timeout()
+            except ISYStreamDisconnectedMaxConnections: # pylint: disable=broad-except
+                self.isy.log.warning(
+                    "PyISY reached maximum connection: %s.", ex
+                )
+                self._lost_connect()
+                return         
+            except ISYStreamDisconnected: # pylint: disable=broad-except
+                self.isy.log.warning(
+                    "PyISY stream disconnected: %s.", ex
+                )
+                self._lost_connect()
+                return                                
             except socket.error as ex: # pylint: disable=broad-except
                 self.isy.log.warning(
                     "PyISY encountered an error while reading the event stream: %s.", ex
@@ -332,3 +351,7 @@ class EventStream:
         self.isy.log.debug(
             "PyISY ended watch loop with running:%s and subscribed:%s.", self._running, self._subscribed
         )
+
+class ISYStreamDisconnected(Exception):
+
+class ISYStreamDisconnectedMaxConnections(ISYStreamDisconnected):
