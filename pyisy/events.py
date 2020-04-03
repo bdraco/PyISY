@@ -227,12 +227,12 @@ class EventStream:
                 events = event_reader.read_events_or_timeout(POLL_TIME)
             except ISYMaxConnections:
                 self.isy.log.error(
-                    "PyISY reached maximum connections, will not auto reconnect: %s.", ex
+                    "PyISY reached maximum connections, will not auto reconnect.",
                 )
                 return
             except (ISYStreamDataError, socket.error) as ex: 
                 self.isy.log.warning(
-                    "PyISY encountered an error while reading the event stream: %s.", ex
+                    "PyISY encountered an error while reading the event stream.",
                 )
                 self._lost_connect()
                 return
