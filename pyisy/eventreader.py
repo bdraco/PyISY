@@ -96,6 +96,7 @@ class ISYEventReader:
     def _parse_headers(self, seperator_position):
         """Find the content-length in the headers."""
         headers = self._event_buffer[0:seperator_position]
+        self._isy.log.debug("PyISY headers: %s.", headers)
         self._event_buffer = self._event_buffer[
             seperator_position + self.HTTP_HEADER_BODY_SEPERATOR_LEN :
         ]
