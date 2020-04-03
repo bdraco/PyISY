@@ -251,3 +251,7 @@ class EventStream:
             self.isy.log.debug(
                 "PyISY finished routing events."
             )
+
+    def __del__(self):
+        """Ensure we unsubscribe on destroy."""
+        self.unsubscribe()
