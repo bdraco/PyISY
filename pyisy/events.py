@@ -45,10 +45,6 @@ class EventStream:
         self.cert = None
         self.data = connection_info
 
-        self._event_buffer = b""
-        self._event_content_length = None
-        self._event_count = 0
-
         # create TLS encrypted socket if we're using HTTPS
         if self.data.get("tls") is not None:
             if self.data["tls"] == 1.1:
@@ -138,104 +134,6 @@ class EventStream:
             self.unsubscribe()
             self.disconnect()
 
-    def _read_events_or_timeout(self):
-        """Read data from the socket."""
-        self.isy.log.debug(
-            "PyISY _read_events_or_timeout."
-        )        
-
-        events = []
-        # poll socket for new data
-        if not self._recvall_into_buffer():
-            return events
-
-        while True:
-            # Read the headers if we do not have content length yet
-            if not self._event_content_length:
-                seperator_position = self._event_buffer.find(HTTP_HEADER_BODY_SEPERATOR)
-                if seperator_position == -1:
-                    return events
-                self._parse_headers(seperator_position)
-
-            self.isy.log.debug(
-                "PyISY _event_content_length: %s.", self._event_content_length
-            )
-
-            # If we do not have the body yet read again
-            if len(self._event_buffer) < self._event_content_length:
-                self.isy.log.debug(
-                    "PyISY body not read yet: %s < %s", len(self._event_buffer), self._event_content_length
-                )
-                return events
-
-            # We have the body now
-            body = self._event_buffer[0:self._event_content_length]
-            self.isy.log.debug(
-                "PyISY body: %s.", body
-            )
-
-            self._event_count += 1
-            self._event_buffer = self._event_buffer[self._event_content_length:]
-            self._event_content_length = None
-            self.isy.log.debug(
-                "PyISY buffer after removing body: %s.", self._event_buffer
-            )
-            
-            if sys.version_info.major == 3:
-                events.append(body.decode("utf-8"))
-            else:
-                events.append(str(body))
-
-    def _recvall_into_buffer(self):                
-        inready, _, _ = select.select([self.socket], [], [], POLL_TIME)
-        self.isy.log.debug(
-            "PyISY inready: %s.", inready
-        )
-
-        if not self.socket in inready:
-            return False
-
-        try:
-            # We have data on the wire, read as much as we can
-            new_data = self.socket.recv(SOCKET_BUFFER_SIZE)            
-            if len(new_data) == 0:
-                self.isy.log.debug(
-                    "PyISY empty read after event count: %s.", self._event_count
-                )                
-                if self._event_count == 1:
-                    raise ISYMaxConnections
-                raise ISYStreamDisconnected
-            self._event_buffer += new_data
-            while True:
-                new_data = self.socket.recv(SOCKET_BUFFER_SIZE)
-                self.isy.log.debug(
-                    "PyISY new_data: %s.", new_data
-                )                    
-                if len(new_data) == 0:
-                    break
-                self._event_buffer += new_data
-        except ssl.SSLWantReadError:
-            pass
-        except IOError as ex:
-            # The socket has been drained
-            if ex.errno == errno.EWOULDBLOCK:
-                pass
-
-        return True
-
-    def _parse_headers(self, seperator_position):
-        """Find the content-length in the headers."""
-        headers = self._event_buffer[0:seperator_position]
-        self._event_buffer = self._event_buffer[seperator_position+HTTP_HEADER_BODY_SEPERATOR_LEN:]
-        for header in headers.split(HTTP_HEADER_SEPERATOR)[1:]:
-            header_name, header_value = header.split(b":", 1)
-            if header_name.strip().lower() != b"content-length":
-                continue
-            self._event_content_length = int(header_value.strip())
-        if not self._event_content_length:
-            # missing content-type!
-            raise ValueError
-
     def write(self, msg):
         """Write data back to the socket."""
         if self._writer is None:
@@ -317,56 +215,134 @@ class EventStream:
             )
             return
 
-        self._event_buffer = b""
-        self._event_content_length = None
-        self._event_count = 0
+        event_reader = ISYEventReader(self.isy, self.socket)
 
-        while True:
-            self.isy.log.debug(
-                "loop."
-            )
+        while self._running and self._subscribed:
             # verify connection is still alive
             if self.heartbeat_time > self._hbwait:
                 self._lost_connect()
                 return
 
             try:
-                events = self._read_events_or_timeout()
+                events = event_reader.read_events_or_timeout(POLL_TIME)
             except ISYMaxConnections:
-                self.isy.log.warning(
+                self.isy.log.error(
                     "PyISY reached maximum connections, will not auto reconnect: %s.", ex
                 )
                 return
-            except (ISYStreamDisconnected, socket.error) as ex: 
+            except (ISYStreamDataError, socket.error) as ex: 
                 self.isy.log.warning(
                     "PyISY encountered an error while reading the event stream: %s.", ex
                 )
                 self._lost_connect()
                 return
 
-            if not self._running or not self._subscribed:
-                break
-
-            if events:
-                self.isy.log.warning(
-                    "PyISY routing messages: %s.", events
-                )
-                for data in events:
-                    self.isy.log.warning(
-                        "PyISY route message: %s.", data
-                    )                    
-                    self._route_message(data)
+            for data in events:            
+                self._route_message(data)
 
             self.isy.log.debug(
-                "completed rounting message."
+                "PyISY finished routing events."
             )
 
-        self.isy.log.debug(
-            "PyISY ended watch loop with running:%s and subscribed:%s.", self._running, self._subscribed
-        )
+class ISYEventReader:
+    """Read in streams of ISY HTTP Events."""
 
-class ISYStreamDisconnected(Exception):
-    pass
+    def __init__(self, isy, isy_read_socket):
+        """Initialize the ISYEventReader class."""
+        self._event_buffer = b""
+        self._event_content_length = None
+        self._event_count = 0
+        self._socket = isy_read_socket
+        self._isy = isy
+
+    def read_events_or_timeout(self, timeout):
+        """Read events from the socket."""
+        events = []
+        # poll socket for new data
+        self.isy.log.debug(
+            "PyISY read_events_or_timeout: %s.", timeout
+        )
+        if not self._recv_into_buffer(timeout):
+            return events
+
+        while True:
+            # Read the headers if we do not have content length yet
+            if not self._event_content_length:
+                seperator_position = self._event_buffer.find(HTTP_HEADER_BODY_SEPERATOR)
+                if seperator_position == -1:
+                    return events
+                self._parse_headers(seperator_position)
+
+            # If we do not have a body yet
+            if len(self._event_buffer) < self._event_content_length:
+                return events
+
+            # We have the body now
+            body = self._event_buffer[0:self._event_content_length]
+            self._event_count += 1
+            self._event_buffer = self._event_buffer[self._event_content_length:]
+            self._event_content_length = None
+
+            if sys.version_info.major == 3:
+                events.append(body.decode("utf-8"))
+            else:
+                events.append(str(body))
+
+    def _recv_into_buffer(self, timeout):
+        """recv data on available on the socket.
+
+        If we get an empty read on the first read attempt
+        this means the isy has disconnected.
+
+        If we get an empty read on the first read attempt
+        and we have seen only one event, the isy has reached
+        the maximum number of event listeners.
+        """          
+        inready, _, _ = select.select([self._socket], [], [], timeout)
+        if not self._socket in inready:
+            return False
+
+        try:
+            # We have data on the wire, read as much as we can
+            # up to 32 * SOCKET_BUFFER_SIZE
+            for read_count in range(0, 32):
+                new_data = self._socket.recv(SOCKET_BUFFER_SIZE)
+                if len(new_data) == 0:
+                    if read_count != 0:
+                        break
+                    if self._event_count == 1:
+                        raise ISYMaxConnections
+                    raise ISYStreamDisconnected
+
+                self._event_buffer += new_data
+        except ssl.SSLWantReadError:
+            pass
+        except IOError as ex:
+            if ex.errno == errno.EWOULDBLOCK:
+                pass
+            raise
+
+        return True
+
+    def _parse_headers(self, seperator_position):
+        """Find the content-length in the headers."""
+        headers = self._event_buffer[0:seperator_position]
+        self._event_buffer = self._event_buffer[seperator_position+HTTP_HEADER_BODY_SEPERATOR_LEN:]
+        for header in headers.split(HTTP_HEADER_SEPERATOR)[1:]:
+            header_name, header_value = header.split(b":", 1)
+            if header_name.strip().lower() != b"content-length":
+                continue
+            self._event_content_length = int(header_value.strip())
+        if not self._event_content_length:
+            # missing content-length!
+            raise ISYStreamDataError(headers)
+
+
+class ISYStreamDataError(Exception):
+    """Invalid data in the isy event stream."""
+
+class ISYStreamDisconnected(ISYStreamDataError):
+    """The isy has disconnected."""
 
 class ISYMaxConnections(ISYStreamDisconnected):
-    pass
+    """The isy has disconnected because it reached maximum connections."""
