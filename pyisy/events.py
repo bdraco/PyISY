@@ -16,6 +16,7 @@ from .constants import (
     ATTR_VAR,
     POLL_TIME,
     PROP_STATUS,
+    RECONNECT_DELAY,
     TAG_NODE,
     VERBOSE,
 )
@@ -193,12 +194,12 @@ class EventStream:
             return (datetime.datetime.now() - self._lasthb).seconds
         return 0.0
 
-    def _lost_connect(self, delay):
+    def _lost_connection(self, delay=0):
         """React when the event stream connection is lost."""
         self.disconnect()
         self.isy.log.warning("PyISY lost connection to the ISY event stream.")
-        time.sleep(delay)
         if self._on_lost_function is not None:
+            time.sleep(delay)
             self._on_lost_function()
 
     def watch(self):
@@ -212,29 +213,30 @@ class EventStream:
         while self._running and self._subscribed:
             # verify connection is still alive
             if self.heartbeat_time > self._hbwait:
-                self._lost_connect(0)
+                self._lost_connection()
                 return
 
             try:
                 events = event_reader.read_events(POLL_TIME)
             except ISYMaxConnections:
                 self.isy.log.error(
-                    "PyISY reached maximum connections, delaying reconnect attempt."
+                    "PyISY reached maximum connections, delaying reconnect attempt by %s seconds.",
+                    RECONNECT_DELAY,
                 )
-                self._lost_connect(60)
+                self._lost_connection(RECONNECT_DELAY)
                 return
             except ISYStreamDataError as ex:
                 self.isy.log.warning(
                     "PyISY encountered an error while reading the event stream: %s.", ex
                 )
-                self._lost_connect(0)
+                self._lost_connection()
                 return
             except socket.error as ex:
                 self.isy.log.warning(
                     "PyISY encountered a socket error while reading the event stream: %s.",
                     ex,
                 )
-                self._lost_connect(0)
+                self._lost_connection()
                 return
 
             for message in events:
