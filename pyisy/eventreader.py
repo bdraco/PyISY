@@ -29,7 +29,7 @@ class ISYEventReader:
         """Read events from the socket."""
         events = []
         # poll socket for new data
-        if not self._recv_into_buffer(timeout):
+        if not self._receive_into_buffer(timeout):
             return events
 
         while True:
@@ -57,8 +57,8 @@ class ISYEventReader:
             else:
                 events.append(str(body))
 
-    def _recv_into_buffer(self, timeout):
-        """recv data on available on the socket.
+    def _receive_into_buffer(self, timeout):
+        """Receive data on available on the socket.
 
         If we get an empty read on the first read attempt
         this means the isy has disconnected.
@@ -68,7 +68,7 @@ class ISYEventReader:
         the maximum number of event listeners.
         """
         inready, _, _ = select.select([self._socket], [], [], timeout)
-        if not self._socket in inready:
+        if self._socket not in inready:
             return False
 
         try:

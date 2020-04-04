@@ -1,11 +1,9 @@
 """ISY Event Stream."""
 import datetime
-import errno
-import select
 import socket
 import ssl
-import time
 from threading import Thread, ThreadError
+import time
 import xml
 from xml.dom import minidom
 
@@ -21,8 +19,9 @@ from .constants import (
     TAG_NODE,
     VERBOSE,
 )
+from .eventreader import ISYEventReader, ISYMaxConnections, ISYStreamDataError
 from .helpers import attr_from_xml, value_from_xml
-from .eventreader import (ISYEventReader, ISYMaxConnections, ISYStreamDataError)
+
 
 class EventStream:
     """Class to represent the Event Stream from the ISY."""
@@ -195,11 +194,9 @@ class EventStream:
         return 0.0
 
     def _lost_connect(self, delay):
-        """Called when the event stream connection is lost."""
+        """React when the event stream connection is lost."""
         self.disconnect()
-        self.isy.log.warning(
-            "PyISY lost connection to the ISY event stream."
-        )
+        self.isy.log.warning("PyISY lost connection to the ISY event stream.")
         time.sleep(delay)
         if self._on_lost_function is not None:
             self._on_lost_function()
@@ -207,9 +204,7 @@ class EventStream:
     def watch(self):
         """Watch the subscription connection and report if dead."""
         if not self._subscribed:
-            self.isy.log.debug(
-                "PyISY watch called without a subscription."
-            )
+            self.isy.log.debug("PyISY watch called without a subscription.")
             return
 
         event_reader = ISYEventReader(self.socket)
@@ -224,19 +219,20 @@ class EventStream:
                 events = event_reader.read_events(POLL_TIME)
             except ISYMaxConnections:
                 self.isy.log.error(
-                    "PyISY reached maximum connections, delaying reconnect attempt.",
+                    "PyISY reached maximum connections, delaying reconnect attempt."
                 )
                 self._lost_connect(60)
                 return
             except ISYStreamDataError as ex:
                 self.isy.log.warning(
-                    "PyISY encountered an error while reading the event stream."
+                    "PyISY encountered an error while reading the event stream: %s.", ex
                 )
                 self._lost_connect(0)
                 return
             except socket.error as ex:
                 self.isy.log.warning(
-                    "PyISY encountered a socket error while reading the event stream: %s.", ex
+                    "PyISY encountered a socket error while reading the event stream: %s.",
+                    ex,
                 )
                 self._lost_connect(0)
                 return
@@ -244,7 +240,7 @@ class EventStream:
             for message in events:
                 try:
                     self._route_message(message)
-                except Exception as ex: # pylint: disable=broad-except
+                except Exception as ex:  # pylint: disable=broad-except
                     self.isy.log.warning(
                         "PyISY encountered while routing message '%s': %s", message, ex
                     )
