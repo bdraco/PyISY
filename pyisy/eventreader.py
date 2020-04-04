@@ -3,7 +3,6 @@ import errno
 import select
 import socket
 import ssl
-import sys
 
 from .constants import SOCKET_BUFFER_SIZE
 
@@ -51,11 +50,7 @@ class ISYEventReader:
             self._event_count += 1
             self._event_buffer = self._event_buffer[self._event_content_length :]
             self._event_content_length = None
-
-            if sys.version_info.major == 3:
-                events.append(body.decode("utf-8"))
-            else:
-                events.append(str(body))
+            events.append(body.decode("utf-8"))
 
     def _receive_into_buffer(self, timeout):
         """Receive data on available on the socket.
