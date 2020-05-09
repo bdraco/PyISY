@@ -134,6 +134,7 @@ class Connection:
         headers = {}
         if json:
             headers["Accept"] = "application/json"
+        self.log.debug("Headers: %s", headers)
 
         try:
             req = self.req_session.get(
@@ -151,7 +152,7 @@ class Connection:
             return None
 
         if req.status_code == 200:
-            self.log.info("ISY Response Received: %s", req.text)
+            self.log.debug("ISY Response Received: %s", req.text)
             return req.text
         if req.status_code == 404 and ok404:
             self.log.debug("ISY Response Received")
