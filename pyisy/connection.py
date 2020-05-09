@@ -126,14 +126,18 @@ class Connection:
 
         return url
 
-    def request(self, url, retries=0, ok404=False):
+    def request(self, url, retries=0, ok404=False, json=False):
         """Execute request to ISY REST interface."""
         if self.log is not None:
             self.log.info("ISY Request: %s", url)
 
+        headers = {}
+        if json:
+            headers["Accept"] = "application/json"
+
         try:
             req = self.req_session.get(
-                url, auth=(self._username, self._password), timeout=10, verify=False
+                url, auth=(self._username, self._password), timeout=10, verify=False, headers=headers
             )
         except requests.ConnectionError:
             self.log.error(
@@ -147,7 +151,7 @@ class Connection:
             return None
 
         if req.status_code == 200:
-            self.log.debug("ISY Response Received")
+            self.log.debug("ISY Response Received: %s", req.text)
             return req.text
         if req.status_code == 404 and ok404:
             self.log.debug("ISY Response Received")
@@ -161,7 +165,7 @@ class Connection:
             # sleep for one second to allow the ISY to catch up
             time.sleep(1)
             # recurse to try again
-            return self.request(url, retries + 1, ok404=False)
+            return self.request(url, retries + 1, ok404=False, json=json)
         # fail for good
         self.log.error(
             "Bad ISY Request: %s %s: Failed after %s retries",

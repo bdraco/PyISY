@@ -178,7 +178,7 @@ class NodeBase:
         if _uom:
             req.append(_uom)
         req_url = self.isy.conn.compile_url(req, query)
-        if not self.isy.conn.request(req_url):
+        if not self.isy.conn.request(req_url, json=True):
             self.isy.log.warning(
                 "ISY could not send %s command to %s.",
                 COMMAND_FRIENDLY_NAME.get(cmd),
