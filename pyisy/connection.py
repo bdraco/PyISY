@@ -151,7 +151,7 @@ class Connection:
             return None
 
         if req.status_code == 200:
-            self.log.debug("ISY Response Received: %s", req.text)
+            self.log.info("ISY Response Received: %s", req.text)
             return req.text
         if req.status_code == 404 and ok404:
             self.log.debug("ISY Response Received")
