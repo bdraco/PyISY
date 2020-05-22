@@ -34,15 +34,14 @@ from .constants import (
 MAX_RETRIES = 5
 MAX_HTTPS_CONNECTIONS = 2
 MAX_HTTP_CONNECTIONS = 5
-RETRY_BACKOFF = [0.01, 0.1, 1, 2, 4]
+RETRY_BACKOFF = [0.01, 0.1, 0.125, 1, 2, 4]
 
 HTTP_OK = 200  # Valid request received, will run it
 HTTP_UNAUTHORIZED = 401  # User authentication failed
 HTTP_NOT_FOUND = 404  # Unrecognized request received and ignored
 HTTP_SERVICE_UNAVAILABLE = 503  # Valid request received, system too busy to run it
 
-HTTP_HEADERS = {"Connection": "keep-alive", "Accept-Encoding": "gzip, deflate"}
-
+HTTP_HEADERS = {"Connection": "keep-alive", "Keep-Alive": "10000", "Accept-Encoding": "gzip, deflate"}
 
 class Connection:
     """Connection object to manage connection to and interaction with ISY."""
@@ -131,8 +130,7 @@ class Connection:
                 url,
                 auth=self._auth,
                 headers=HTTP_HEADERS,
-                timeout=15,
-                chunked=True if not self.use_https else None,
+                timeout=15
             ) as res:
                 if res.status == HTTP_OK:
                     _LOGGER.debug("ISY Response Received.")
